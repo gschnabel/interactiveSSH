@@ -40,7 +40,7 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
                                tempdir.loc, verbosity=1,
                                timeout.cmd=20, timeout.con=20,
                                PS1="ScientificClusterPrompt> ",
-                               regexPS1 = "\033\\]0;.*?ScientificCluster>",
+                               regexPS1 = NULL, 
                                delay=c(1,1,1,5,5,5),
                                delay2=delay*1.5) {
 
@@ -79,8 +79,14 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
         assign(nm[i],defaults[[i]],parfrm)
   }
 
-  timedOut <- function(start,timeout) {
-    difftime(Sys.time(),start,units="secs") > timeout
+  timedOut <- function(start,delay) {
+    elTime <- difftime(Sys.time(),start,units="secs")
+    elTime > delay 
+  }
+   
+  # just a semantically meaningful acronym for timedOut
+  waitedMinInt <- function(start,delay) {
+    timedOut(start,delay)
   }
 
   printInfo <- function(msg,verb) {
@@ -97,7 +103,6 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
   getSocketFile <- function() {
     socketFile
   }
-
 
   readRaw <- function () {
     tryCatch(rawToChar(readBin(outHnd,what="raw",n=16384,size=1)),
@@ -121,11 +126,12 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
       character(0)
   }
 
-  readAndWait <- function(wait, quick.ret=FALSE) {
+  readAndWait <- function(minwait=0.1, maxwait=10) {
     loadDefaults()
     answer <- character(0)
     start <- Sys.time()
-    while (!timedOut(start,wait) && (!quick.ret || length(answer)==0)) {
+    while (!timedOut(start,maxwait) &&
+           (!waitedMinInt(start,minwait) || length(answer)==0)) {
       Sys.sleep(0.1)
       newData <- read()
       if (length(newData)>0) {
@@ -136,6 +142,7 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
     answer
   }
 
+ 
   execBashBasic <- function(cmdstr, timeout.cmd=NULL) {
 
     loadDefaults()
@@ -220,7 +227,6 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
            paste0("rm '",dest,"'"),
            paste0("xxd -r -p <<'EOF' > '",dest,"'")))
     hex <- system(paste0("xxd -p '",src,"'"),intern=TRUE)
-    browser()#debug
     lineMax <- 100
     idx <- 1
     while (idx <= length(hex)) {
@@ -266,7 +272,6 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
       sendStr <- paste0(combChars[1:cutIdx],collapse="")
       cmdstr <- paste0("printf '",sendStr,"' >> '",dest,"'")
       #system(cmdstr)
-      #browser()
       execBashBasic(paste0("printf '",sendStr,"' >> '",dest,"'"))
 
       if (cutIdx>=length(combChars) && length(newData)==0)
@@ -282,6 +287,7 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
 
   initCon <- function() {
 
+    browser() # debug
     # assertions
     stopifnot(is.null(logfile),
               is.null(inPipe),is.null(outPipe),
@@ -314,7 +320,11 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
       cmdstr <- paste0("sshpass -f'",tempPwfile,"' ",
                        "ssh -p'", port,"' -nNf -tt -E '",logfile,"' ",
                        "-o ControlMaster=yes -o ControlPath='",socketFile,"' ",login)
-      system(cmdstr)
+      retcode <- system(cmdstr)
+      if (retcode != 0) {
+        stop(paste0("Some error occurred during the connection using the command:\n",
+	            cmdstr))
+      }
     }
 
     # prepare interactive ssh connection
@@ -337,50 +347,35 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
     outHnd <<- fifo(outPipe,open="rb",blocking=FALSE)
 
     # restrict file access rights
-    system(paste0("chmod 600 '",logfile,"' '",inPipe,"' '",outPipe,"' '",socketFile,"' '",tempPwfile,"'"))
-
+    system(paste0("chmod 600 '",logfile,"' '",inPipe,"' '",outPipe,"' '",tempPwfile,"'"))
+    if (isTRUE(share))
+      system(paste0("chmod 600 '",socketFile,"'"))
 
     # wait for text on stdout to indicate successful login
-    answer <- character(0)
-    delayIdx <- 0
-    while (length(answer)==0 && delayIdx<=length(delay)) {
+    answer <- readAndWait(0.5, 10)
 
-      if (delayIdx > 0) {
-        Sys.sleep(runif(1,delay[delayIdx],delay2[delayIdx]))
-        printInfo(paste0("ssh - ...reconnect attempt",delayIdx),1)
-      }
-
-      start <- Sys.time()
-      while (!timedOut(start,timeout.con)) {
-        Sys.sleep(0.1)
-        answer <- read()
-        if (length(answer)>0) break
-      }
-
-      delayIdx <- delayIdx + 1
-    }
     if (length(answer)==0) {
       closeCon()
       stop(paste0("maximum number of retries reached (",length(delay),")"))
     }
 
     # wait until all text has been printed
-    answer <- c(answer,readAndWait(0.1))
+    answer <- c(answer,readAndWait(0.1,5))
 
     # prepare the prompt
     if (is.null(PS1))
       return(TRUE)
 
     send(c(paste0("PS1='",PS1,"'"),""))
-    answer <- readAndWait(10, quick.ret=TRUE)
-
+    answer <- readAndWait(0.1, 5)
+    
     if (!isTRUE(grepl(PS1,answer[length(answer)],fixed=TRUE))) {
       closeCon()
       stop("unable to remove bash prompt via PS1 - is it really bash?!")
     }
 
-    # introduce a delay and make sure that the output-pipe is empty
-    answer <- c(answer, readAndWait(0.1))
+    if (is.null(regexPS1))
+      regexPS1 <<- escapeRegex(answer[length(answer)])
 
     # make sure it is really bash
     thisShell <- execBashBasic("echo $0")[[1]]

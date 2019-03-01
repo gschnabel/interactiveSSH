@@ -12,3 +12,9 @@ generateTempdir <- function(basedir) {
   if (!isTRUE(tryRes)) stop("Could not create temporary directory")
   fullpath
 }
+
+
+escapeRegex <- function(str) {
+  gsub("([.|()\\^{}+$*?]|\\[|\\])", "\\\\\\1", str)
+}
+
