@@ -45,7 +45,8 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
   # assertions
   stopifnot(is.null(password) || (length(password)==1 && is.character(password)),
             is.null(pwfile) || (length(pwfile)==1 && is.character(pwfile)),
-            is.character(password) || is.character(pwfile),
+            is.character(password) || is.null(password),
+            is.character(pwfile) || is.null(pwfile),
             is.null(pwfile) || file.exists(pwfile))
 
   # defaults
@@ -280,6 +281,7 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
 
   initCon <- function() {
 
+    browser()  # debug
     # assertions
     stopifnot(is.null(logfile),
               is.null(inPipe),is.null(outPipe),
@@ -299,18 +301,22 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
 
     # prepare filepaths
     tempPwfile <<- file.path(mytempdir,"login")
-    if (is.null(pwfile)) {
+    sshpass_prefix_cmd <- paste0("sshpass -f'",tempPwfile,"' ") 
+    if (is.null(pwfile) && !is.null(password)) {
       writeLines(password,tempPwfile)
-    } else {
+    } else if (!is.null(pwfile) && is.null(password)) {
       password <- readLines(pwfile,n=1)
       writeLines(password,tempPwfile)
+    } else {
+      writeLines("nothing",tempPwfile)
+      sshpass_prefix_cmd <- ""
     }
     system(paste0("chmod 600 '",tempPwfile,"'"))
 
     # prepare master connection
     if (isTRUE(share)) {
-      cmdstr <- paste0("sshpass -f'",tempPwfile,"' ",
-                       "ssh -p'", port,"' -nNf -tt -E '",logfile,"' ",
+      cmdstr <- paste0(sshpass_prefix_cmd,
+                       "ssh -p'", port,"' -nNf -E '",logfile,"' ",
                        "-o ControlMaster=yes -o ControlPath='",socketFile,"' ",login)
       retcode <- system(cmdstr)
       if (retcode != 0) {
@@ -325,7 +331,7 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
     if (!file.exists(outPipe))
       system(paste0("mkfifo -m 600 ",outPipe))
 
-    cmdstr <- paste0("sshpass -f'",tempPwfile,"' ",
+    cmdstr <- paste0(sshpass_prefix_cmd,
                      "ssh -p'",port,"' -tt -E '",logfile,"' ",
                      if (isTRUE(share))
                       paste0("-o ControlMaster=no -o ControlPath='",socketFile,"' ")
@@ -339,6 +345,16 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
     outHnd <<- fifo(outPipe,open="rb",blocking=FALSE)
 
     # restrict file access rights
+    start <- Sys.time()
+    while (!file.exists(logfile)) {
+      if (timedOut(start,5)) {
+        closeCon()
+        stop(paste0("expecting creation of logfile ",
+                  logfile, " but it does not happen (fast enough)"))
+      } 
+      Sys.sleep(0.1)
+    }
+
     system(paste0("chmod 600 '",logfile,"' '",inPipe,"' '",outPipe,"' '",tempPwfile,"'"))
     if (isTRUE(share))
       system(paste0("chmod 600 '",socketFile,"'"))
@@ -364,6 +380,11 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
       return(TRUE)
 
     send(c(paste0("PS1='",PS1,"'"),""))
+    answer <- readAndWait(0.1, 5)
+    send("")  # hack: if using a shared connection
+              # the command prompt is repeated several times on the same line
+              # but sending just something gives a single prompt in the last 
+              # transmitted line
     answer <- readAndWait(0.1, 5)
     
     if (!isTRUE(grepl(PS1,answer[length(answer)],fixed=TRUE))) {
