@@ -26,6 +26,49 @@ git clone https://github.com/gschnabel/interactiveSSH.git
 R CMD INSTALL interactiveSSH
 ```
 
+## Usage
+
+In an R session, connecting to the server `server.com` as user `username` and using the password `password`
+would be done like that: 
+
+```
+library(interactiveSSH)
+sshcon <- initInteractiveSSH("username@server.com", password="password", tempdir.loc="tempdir")
+```
+
+Instead of passing the password as argument, one can alternatively provide a file containing the
+password on the first line or set up SSH for passwordless login.
+More information about the function `initInteractiveSSH` is available by typing
+`?initInteractiveSSH` at the R prompt.
+
+Once the connection is established, the object `sshcon` contains the functions `execBash`,
+which can be used to submit commands to the remote machine:
+
+```
+sshcon$execBash("echo Hello World!")
+# Output
+# [[1]]
+# [1] "Hello World!"
+```
+
+Several commands can be executed at once:
+
+```
+sshcon$execBash(c("echo Hello World!", "echo Two commands in sequence, wow!"))
+# Output
+# [[1]]
+# [1] "Hello World!"
+# 
+# [[2]]
+# [1] "Two commands in sequence, wow!"
+
+After the SSH connection is not longer required,
+it should be closed via
+
+```
+sshcon$closeCon()
+```
+
 
 
 
