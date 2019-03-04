@@ -6,9 +6,7 @@
 \usage{
 initInteractiveSSH(login, password = NULL, pwfile = NULL, port = 22,
   share = FALSE, tempdir.loc, verbosity = 1, timeout.cmd = 20,
-  timeout.con = 20, PS1 = "ScientificClusterPrompt> ",
-  regexPS1 = "\\033\\\\]0;.*?ScientificCluster>", delay = c(1, 1, 1, 5, 5,
-  5), delay2 = delay * 1.5)
+  timeout.con = 20, PS1 = "autoPrompt>+>", regexPS1 = NULL)
 }
 \arguments{
 \item{login}{login in the form user@host}
@@ -32,10 +30,6 @@ initInteractiveSSH(login, password = NULL, pwfile = NULL, port = 22,
 \item{PS1}{desired bash prompt (this string should not appear in the output of commands)}
 
 \item{regexPS1}{regular expression to capture the bash prompt (can equal \code{PS1} if only alphanumeric characters)}
-
-\item{delay}{how long to wait between connection attempts (lower limit)}
-
-\item{delay2}{how long to wait between connection attempts (upper limit)}
 }
 \value{
 A list (think object) with functions to execute bash commands remotely, see \code{details}
