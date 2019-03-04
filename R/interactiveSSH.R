@@ -12,8 +12,6 @@
 #' @param timeout.con maximum allowed duration to establish connection
 #' @param PS1 desired bash prompt (this string should not appear in the output of commands)
 #' @param regexPS1 regular expression to capture the bash prompt (can equal \code{PS1} if only alphanumeric characters)
-#' @param delay how long to wait between connection attempts (lower limit)
-#' @param delay2 how long to wait between connection attempts (upper limit)
 #'
 #' @details
 #' The list returned by this function contains the following functions:
@@ -39,10 +37,8 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
                                port=22, share=FALSE,
                                tempdir.loc, verbosity=1,
                                timeout.cmd=20, timeout.con=20,
-                               PS1="ScientificClusterPrompt> ",
-                               regexPS1 = NULL, 
-                               delay=c(1,1,1,5,5,5),
-                               delay2=delay*1.5) {
+                               PS1="autoPrompt>+>",
+                               regexPS1 = NULL) {
 
 
 
@@ -50,14 +46,11 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
   stopifnot(is.null(password) || (length(password)==1 && is.character(password)),
             is.null(pwfile) || (length(pwfile)==1 && is.character(pwfile)),
             is.character(password) || is.character(pwfile),
-            is.null(pwfile) || file.exists(pwfile),
-            is.numeric(delay) && is.numeric(delay2),
-            length(delay)==length(delay2) || all(delay < delay2))
+            is.null(pwfile) || file.exists(pwfile))
 
   # defaults
   defaults <- list(timeout.cmd=timeout.cmd,
                    timeout.con=timeout.con,
-                   delay=delay, delay2=delay2,
                    verbosity=verbosity)
 
   # global vars
@@ -287,7 +280,6 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
 
   initCon <- function() {
 
-    browser() # debug
     # assertions
     stopifnot(is.null(logfile),
               is.null(inPipe),is.null(outPipe),
@@ -356,13 +348,18 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
 
     if (length(answer)==0) {
       closeCon()
-      stop(paste0("maximum number of retries reached (",length(delay),")"))
+      stop(paste0("unable to establish connection!\n",
+                  "Try the following command manually to see what's wrong:\n",
+                  cmdstr))
     }
 
     # wait until all text has been printed
-    answer <- c(answer,readAndWait(0.1,5))
+    answer <- c(answer,readAndWait(0.1,0.5))
 
     # prepare the prompt
+    # if PS1=NULL in the argument list
+    # we return immediately without trying to change the prompt
+    # function execBash will then not be available
     if (is.null(PS1))
       return(TRUE)
 
@@ -374,6 +371,8 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
       stop("unable to remove bash prompt via PS1 - is it really bash?!")
     }
 
+    # if not regex to capture PS1 specified by user
+    # try to construct one
     if (is.null(regexPS1))
       regexPS1 <<- escapeRegex(answer[length(answer)])
 
