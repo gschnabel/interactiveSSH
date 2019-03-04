@@ -281,7 +281,6 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
 
   initCon <- function() {
 
-    browser()  # debug
     # assertions
     stopifnot(is.null(logfile),
               is.null(inPipe),is.null(outPipe),
