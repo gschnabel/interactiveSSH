@@ -29,7 +29,7 @@ R CMD INSTALL interactiveSSH
 ## Usage
 
 In an R session, connecting to the server `server.com` as user `username` and using the password `password`
-would be done like that: 
+is done like that: 
 
 ```
 library(interactiveSSH)
@@ -69,6 +69,29 @@ it should be closed via
 ```
 sshcon$closeCon()
 ```
+
+## Troubleshooting
+
+In the case, the function `initInteractiveSSH` throws an error during a connection attempt,
+the following steps may help to locate the problem.
+
+In some scenarios, `initInteractiveSSH` throws an error including the SSH command attempted to run
+in the error message.
+Running this command in a terminal manually may give a hint about the problem.
+
+After the connection has been established, the package tries to alter the bash prompt 
+in order to apply regular expressions afterwards to capture the output of commands.
+If changing the prompt fails, e.g., because SSH executes another shell than bash,
+this problem may be investigated by passing `PS1=NULL` as argument to 
+`initInteractiveSSH`. The function will then not try to change the prompt but returns
+immediately as soon as the SSH connection is established.
+The function calls `send("<command>")` and `read("<command>")` can then be used to 
+diagnose the problem. Read more about these function by typing `?initInteractiveSSH`
+at the R prompt.
+
+
+
+
 
 
 
