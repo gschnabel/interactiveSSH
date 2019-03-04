@@ -19,7 +19,7 @@ only under Linux.
 ## Installation
 
 If `git` is present,
-the package can be installed via the command line by the following commands: 
+the package can be installed via the command line by invoking the following commands: 
 
 ```
 git clone https://github.com/gschnabel/interactiveSSH.git
@@ -41,7 +41,7 @@ password on the first line or set up SSH for passwordless login.
 More information about the function `initInteractiveSSH` is available by typing
 `?initInteractiveSSH` at the R prompt.
 
-Once the connection is established, the object `sshcon` contains the functions `execBash`,
+Once the connection is established, the object `sshcon` contains the function `execBash`,
 which can be used to submit commands to the remote machine:
 
 ```
@@ -61,6 +61,7 @@ sshcon$execBash(c("echo Hello World!", "echo Two commands in sequence, wow!"))
 # 
 # [[2]]
 # [1] "Two commands in sequence, wow!"
+```
 
 After the SSH connection is not longer required,
 it should be closed via
