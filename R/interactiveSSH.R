@@ -430,7 +430,7 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
       matchedPsOut <- regmatches(psOut,regexec(pat,psOut))
       psIds <- unlist(lapply(matchedPsOut,function(x) x[2]))
       if (length(psIds)>0)
-        system(paste0("kill ",paste0(psIds,collapse=" ")))
+        system(paste0("kill ",paste0(psIds,collapse=" "), " 2> /dev/null"))
     }
     # close handles and cleanup
     try({
