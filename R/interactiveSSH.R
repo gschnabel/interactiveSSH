@@ -425,11 +425,10 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
   closeCon <- function() {
     # kill the ssh processes
     if (!is.null(logfile)) {
-      psOut <- system(paste0("ps aux | grep -F '",logfile,"'"),intern=TRUE)
-      pat <- paste0("^[[:alnum:]]+[[:blank:]]+([[:digit:]]+)[[:blank:]]+",
-                    ".*[[:blank:]]+ssh(pass)?[[:blank:]]+")
+      psOut <- system(paste0("ps -ewwo pid,cmd | grep -F '",logfile,"'"),intern=TRUE)
+      pat <- paste0("^ *([[:digit:]]+) +.*$")
       matchedPsOut <- regmatches(psOut,regexec(pat,psOut))
-      psIds <- unlist(lapply(matchedPsOut,function(x) if (length(x)<2) x else x[2]))
+      psIds <- unlist(lapply(matchedPsOut,function(x) x[2]))
       if (length(psIds)>0)
         system(paste0("kill ",paste0(psIds,collapse=" ")))
     }
