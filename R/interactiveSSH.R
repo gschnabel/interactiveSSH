@@ -413,7 +413,7 @@ initInteractiveSSH <- function(login,password=NULL,pwfile=NULL,
 
     # make sure it is really bash
     thisShell <- execBashBasic("echo $0")[[1]]
-    if (!grepl("bash",thisShell,fixed=TRUE)) {
+    if (!grepl("bash",thisShell[length(thisShell)],fixed=TRUE)) {
       closeCon()
       stop(paste0("this is not bash but ",thisShell))
     }
